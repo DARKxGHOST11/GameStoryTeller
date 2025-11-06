@@ -18,15 +18,11 @@ from dotenv import load_dotenv
 load_dotenv()
 import os
 import uuid
-from datetime import datetime
-import pytz
 from PIL import Image
 import google.generativeai as genai
 import re
 import json
-from smolagents import load_tool
 import functools
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, render_template, request, jsonify
 try:
@@ -48,11 +44,21 @@ if cors_available:
 # Initialize Gemini
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
+# Lazy load image tool to avoid issues on Vercel
+_image_tool = None
+
 @functools.lru_cache(maxsize=1)
 def load_image_tool():
-    return load_tool("agents-course/text-to-image", trust_remote_code=True)
-
-tool = load_image_tool()
+    """Lazy load image tool - only when needed"""
+    global _image_tool
+    if _image_tool is None:
+        try:
+            from smolagents import load_tool
+            _image_tool = load_tool("agents-course/text-to-image", trust_remote_code=True)
+        except Exception as e:
+            print(f"[WARNING] Could not load image tool: {e}")
+            _image_tool = None
+    return _image_tool
 
 # ------------------------
 # Multi-Agent System using CrewAI
@@ -433,7 +439,7 @@ def parse_story_with_dialogues(story_text, char1_name, char2_name, num_scenes):
                     dialogue_text = text.strip()
                     if dialogue_text and len(dialogue_text) > 5:  # Meaningful dialogue
                         found_dialogues.append({
-                            'speaker': speaker.strip(),
+                'speaker': speaker.strip(),
                             'text': dialogue_text[:200]  # Limit length
                         })
         
@@ -487,13 +493,13 @@ def parse_story_with_dialogues(story_text, char1_name, char2_name, num_scenes):
     
     # Ensure we have the right number of scenes
     while len(scenes) < num_scenes:
-        scenes.append({
+            scenes.append({
             'description': f'Scene {len(scenes) + 1} continues the epic journey.',
-            'dialogues': [
+                'dialogues': [
                 {'speaker': char1_name, 'text': 'Our quest continues forward.'},
                 {'speaker': char2_name, 'text': 'Indeed, we must not waver.'}
-            ]
-        })
+                ]
+            })
     
     return scenes[:num_scenes]
 
@@ -542,7 +548,13 @@ Characters: {char1_visual} and {char2_visual} interacting in a {genre} setting.
 Dialogue context: {dialogue_text if dialogue_text else 'Characters conversing'}
 High quality, detailed, vibrant colors, dramatic lighting, professional comic book illustration with speech bubbles visible."""
             
-            img = tool(img_prompt)
+            # Load image tool lazily
+            image_tool = load_image_tool()
+            if image_tool is None:
+                print(f"[ERROR] Image tool not available for scene {idx+1}")
+                return None
+            
+            img = image_tool(img_prompt)
             img_path = f"scene_{uuid.uuid4().hex[:8]}.png"
             img.save(img_path)
             
