@@ -61,24 +61,33 @@ def load_image_tool():
     return _image_tool
 
 # ------------------------
-# Multi-Agent System using CrewAI
+# Multi-Agent System using CrewAI (Optional - for Vercel compatibility)
 # ------------------------
-from crewai import Agent, Task, Crew, Process
+# Make crewai optional to reduce deployment size
+try:
+    from crewai import Agent, Task, Crew, Process
+    crewai_available = True
+except ImportError:
+    crewai_available = False
+    print("[INFO] CrewAI not available - agents will be skipped (this is fine for Vercel)")
 
 # Initialize LLM for agents (optional - we use direct Gemini API for speed)
 # Note: Agents are defined for documentation/structure but not actively used in generation
 llm = None
 agents_available = False
 
-try:
-    from langchain_google_genai import ChatGoogleGenerativeAI  # type: ignore
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.7, google_api_key=os.getenv("GOOGLE_API_KEY"))
-    agents_available = True
-    print("[OK] langchain_google_genai loaded successfully")
-except (ImportError, AttributeError) as e:
-    print(f"[INFO] langchain-google-genai not available ({type(e).__name__})")
-    print("       Agents will be skipped. Using direct Gemini API for fast story generation.")
-    llm = None
+if crewai_available:
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI  # type: ignore
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.7, google_api_key=os.getenv("GOOGLE_API_KEY"))
+        agents_available = True
+        print("[OK] langchain_google_genai loaded successfully")
+    except (ImportError, AttributeError) as e:
+        print(f"[INFO] langchain-google-genai not available ({type(e).__name__})")
+        print("       Agents will be skipped. Using direct Gemini API for fast story generation.")
+        llm = None
+else:
+    print("[INFO] CrewAI not available - using direct Gemini API (Vercel-optimized mode)")
 
 # Define 5 specialized agents (only if LLM is available)
 # These define the "expertise" used in the story generation prompts
@@ -88,7 +97,7 @@ dialogue_writer_agent = None
 scene_designer_agent = None
 story_editor_agent = None
 
-if agents_available and llm is not None:
+if crewai_available and agents_available and llm is not None:
     try:
         story_planner_agent = Agent(
             role='Story Planner',
