@@ -1,0 +1,37 @@
+# Exclude large files and directories from Vercel deployment
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.mov
+scene_*.png
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
